@@ -255,6 +255,19 @@ uint32_t get_address_cache_tag(uint32_t address) {
     return address >> (g_cache_index_bits + g_cache_offset_bits);
 }
 
+// Confirmed.
+uint32_t get_address_cache_index(uint32_t address) {
+    // Push off the bunch on the left we don't want
+    // and come back to the middle.. then push off the right hand side
+    return (address << g_num_cache_tag_bits) >> (g_num_cache_tag_bits + g_cache_offset_bits);
+}
+
+// Confirmed.
+uint32_t get_address_cache_offset(uint32_t address) {
+    uint32_t lhs = (g_num_cache_tag_bits + g_cache_index_bits);
+    return (address << lhs) >> lhs;
+}
+
 void process_mem_access(mem_access_t access) {
     // printf("Processing %d %s\n", access.address, get_access_type(access.accesstype));
     printf("Address tag of %d (%x) is %d\n", access.address, access.address,  get_address_cache_tag(access.address));
