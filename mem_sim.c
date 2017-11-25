@@ -240,10 +240,23 @@ void init_structs() {
     g_num_cache_tag_bits = 32 - g_cache_index_bits - g_cache_offset_bits;
 }
 
+uint32_t get_address_tag(uint32_t address) {
+    // address is of this form:
+    // [TAG][INDEX][OFFSET]
+    //   ^     ^      ^
+    //   |     |      |
+    //   |     |   g_cache_offset_bits
+    //   |   g_cache_index_bits
+    //  g_num_cache_tag_bits
+    //
+    // We want tag.
+    // So shift right (index + offset) bits, and return that.
+    return address >> (g_cache_index_bits + g_cache_offset_bits);
 }
 
 void process_mem_access(mem_access_t access) {
     // printf("Processing %d %s\n", access.address, get_access_type(access.accesstype));
+    printf("Address tag of %d is %d\n", access.address, get_address_tag(access.address));
 }
 
 int main(int argc, char** argv) {
