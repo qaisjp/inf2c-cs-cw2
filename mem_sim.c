@@ -171,6 +171,16 @@ bool debug = true;
 // to derive the index from the address.
 uint32_t g_cache_index_bits = 0;
 
+// Type for an individual cache_block,
+// (direct mapped)
+typedef struct {
+    bool valid;
+    uint32_t tag;
+} cache_block_t;
+
+// Cache
+cache_block_t* g_cache;
+
 const char* get_access_type(uint32_t t) {
     switch(t) {
         case instruction: return "instruction";
@@ -203,6 +213,10 @@ void init_structs() {
     g_num_cache_tag_bits = 32 - g_cache_index_bits - g_cache_offset_bits;
 }
 
+void cleanup() {
+    print("Cleaning up...\n");
+}
+
 // Confirmed.
 uint32_t get_address_cache_tag(uint32_t address) {
     // address is of this form:
@@ -218,11 +232,13 @@ uint32_t get_address_cache_tag(uint32_t address) {
     return address >> (g_cache_index_bits + g_cache_offset_bits);
 }
 
-// Confirmed.
-uint32_t get_address_cache_index(uint32_t address) {
+// Confirmed. Gets the cache block index of the address.
+uint32_t get_address_cache_block_index(uint32_t address) {
     // Push off the bunch on the left we don't want
     // and come back to the middle.. then push off the right hand side
-    return (address << g_num_cache_tag_bits) >> (g_num_cache_tag_bits + g_cache_offset_bits);
+    uint32_t raw_index = (address << g_num_cache_tag_bits) >> (g_num_cache_tag_bits + g_cache_offset_bits);
+
+    return raw_index % number_of_cache_blocks;
 }
 
 // Confirmed.
@@ -335,8 +351,9 @@ int main(int argc, char** argv) {
         /* Add your code here */
         /* Feed the address to your TLB and/or Cache simulator and collect statistics. */
         process_mem_access(access);
-
     }
+
+    cleanup();
 
     /* Do not modify code below. */
     /* Make sure that all the parameters are appropriately populated. */
