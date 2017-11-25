@@ -190,6 +190,21 @@ const char* get_access_type(uint32_t t) {
     return "";
 }
 
+// Confirmed. Gets the cache block index of the address.
+uint32_t get_address_cache_block_index(uint32_t address) {
+    // Push off the bunch on the left we don't want
+    // and come back to the middle.. then push off the right hand side
+    uint32_t raw_index = (address << g_num_cache_tag_bits) >> (g_num_cache_tag_bits + g_cache_offset_bits);
+
+    return raw_index % number_of_cache_blocks;
+}
+
+// Confirmed.
+uint32_t get_address_cache_offset(uint32_t address) {
+    uint32_t lhs = (g_num_cache_tag_bits + g_cache_index_bits);
+    return (address << lhs) >> lhs;
+}
+
 void init_structs() {
     print("Initialising structs..\n");
 
@@ -250,21 +265,6 @@ uint32_t get_address_cache_tag(uint32_t address) {
     // We want tag.
     // So shift right (index + offset) bits, and return that.
     return address >> (g_cache_index_bits + g_cache_offset_bits);
-}
-
-// Confirmed. Gets the cache block index of the address.
-uint32_t get_address_cache_block_index(uint32_t address) {
-    // Push off the bunch on the left we don't want
-    // and come back to the middle.. then push off the right hand side
-    uint32_t raw_index = (address << g_num_cache_tag_bits) >> (g_num_cache_tag_bits + g_cache_offset_bits);
-
-    return raw_index % number_of_cache_blocks;
-}
-
-// Confirmed.
-uint32_t get_address_cache_offset(uint32_t address) {
-    uint32_t lhs = (g_num_cache_tag_bits + g_cache_index_bits);
-    return (address << lhs) >> lhs;
 }
 
 int main(int argc, char** argv) {
