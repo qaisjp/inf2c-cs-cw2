@@ -162,6 +162,10 @@ typedef uint8_t bool;
 #define true 1
 #define false 0
 
+// Define own print so we can turn off debug messages later
+bool debug = true;
+#define print(...) if (debug) { printf(__VA_ARGS__); }
+
 // Number of bits required to represent an index
 // of the cache. This number of bits is used
 // to derive the index from the address.
@@ -176,69 +180,17 @@ const char* get_access_type(uint32_t t) {
     return "";
 }
 
-typedef struct {
-    bool valid;
-    uint32_t tag;
-} cache_block_t;
-
 void init_structs() {
-    printf("Initialising structs..\n");
+    print("Initialising structs..\n");
 
-    // FYI, we know that a block, in loose terms has:
-    // - keyed by an index (derived from an address)
-    // - has an associated tag (derived from an address)
-    // - a block (data that contains a byte for each address)
-    //
-    // Note how a block contains a byte for each address. The number
-    // of bytes (i.e, addresses) stored per block is constant across
-    // the entirety of this program. We'll come back here later.
-
-    // We know the number of blocks we need/have in the cache
-    // from this we need to determine how many bits are required
-    // to represent that number.
-    //
-    // It's easy, just log2(x) to find the number of bits required
-    // to represent `x`!
-    //
-    // Each "block number" is therefore represented in
+    // Each "block number" is represented in
     // n = log2(block_count) bits...
     // and each "block number" is actually the **index**.
-    //
-    // This means that an index is represented by n bits.
-    // There must be enough space in the address to represent the
-    // index, and so we now we know how many bits are used to derive
-    // the index of each individual address.
     g_cache_index_bits = log2(number_of_cache_blocks);
-    printf("CacheIndexBits: %d\n", g_cache_index_bits);
+    print("CacheIndexBits: %d\n", g_cache_index_bits);
 
-    // Now lets pick up where we left off. Multiple addresses
-    // can point to the same index, and can point to the same tag.
-    // It's the "block" that contains individual chunks of data for each
-    // individual address.
-    //
-    // Each individual address can only EVER store ONE byte, remember?
-    // Well, cache_block_size tells you how many bytes is stored in an
-    // individual block.
-    // (in other words, how many addresses use an individual block)
-    //
-    // So if multiple addresses use the same block to store their individual
-    // pieces of data, how do we know which byte within the block to read?
-    // That's where cache_block_size comes in.
-    //
-    // We simply derive the "offset" within the block from the address!
-    // But, aha! How many bits (well, max needed bits) does an "offset"
-    // consume within an address? It'd be log2(offsetCount).
-    //
-    // How do we determine the offsetCount? Good question.
-    // We have `cache_block_size`. Example: 4 bytes.
-    // Since addresses use 1 byte each; 0, 1, 2, 3 are the offsets.
-    // So offsetCount is simply the number of bytes: 4.
-    // We need to know how many bits are required to store offsetCount.
-    // Easy. log2(4) = 2, 2 bits needed to store 4 numbers (max val: 3 = 4-1)
-    //
-    // So since 4 is our example of `cache_block_size`.
-    // The number of bits to store a singular cache offset is:
-    //     log2(cache_block_size);
+    // offsetCount = cache_block_size; because size is in bytes, addresses use 1 byte each
+    // g_cache_offset_bits = log2(offsetCount); // bits required to store the count
     g_cache_offset_bits = log2(cache_block_size);
 
     // We are told in the spec that an address is always 32 bits.
@@ -281,7 +233,7 @@ uint32_t get_address_cache_offset(uint32_t address) {
 
 void process_mem_access(mem_access_t access) {
     // printf("Processing %d %s\n", access.address, get_access_type(access.accesstype));
-    printf("Address tag of %d (%x) is %d\n", access.address, access.address,  get_address_cache_tag(access.address));
+    print("Cache block of %d (%x) is %d\n", access.address, access.address, get_address_cache_block_index(access.address));
 }
 
 int main(int argc, char** argv) {
