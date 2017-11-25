@@ -34,6 +34,7 @@ typedef struct {
     access_t accesstype;
 } mem_access_t;
 
+// YOU UPDATE
 // These are statistics for the cache and TLB and should be maintained by you.
 typedef struct {
     uint32_t tlb_data_hits;
@@ -46,26 +47,26 @@ typedef struct {
     uint32_t cache_instruction_misses;
 } result_t;
 
-
+// YOU USE
 /*
  * Parameters for TLB and cache that will be populated by the provided code skeleton.
  */
-hierarchy_t hierarchy_type = tlb_cache;
-uint32_t number_of_tlb_entries = 0; 
-uint32_t page_size = 0;
-uint32_t number_of_cache_blocks = 0; 
+hierarchy_t hierarchy_type = tlb_cache; // mode script is currently running in
+uint32_t number_of_tlb_entries = 0; // ?
+uint32_t page_size = 0; // ?
+uint32_t number_of_cache_blocks = 0;
 uint32_t cache_block_size = 0;
-uint32_t num_page_table_accesses = 0;
+uint32_t num_page_table_accesses = 0; // ?
 
-
+// YOU UPDATE
 /*
  * Each of the variables (subject to hierarchy_type) below must be populated by you.
  */
 uint32_t g_total_num_virtual_pages = 0;
 uint32_t g_num_tlb_tag_bits = 0;
 uint32_t g_tlb_offset_bits = 0;
-uint32_t g_num_cache_tag_bits = 0;
-uint32_t g_cache_offset_bits= 0;
+uint32_t g_num_cache_tag_bits = 0; // number of bits that is storing the tag
+uint32_t g_cache_offset_bits= 0; // number of bits needed to store a singular offset
 result_t g_result;
 
 
@@ -165,10 +166,76 @@ const char* get_access_type(uint32_t t) {
 
 void init_structs() {
     printf("Initialising structs..\n");
+
+    // FYI, we know that a block, in loose terms has:
+    // - keyed by an index (derived from an address)
+    // - has an associated tag (derived from an address)
+    // - a block (data that contains a byte for each address)
+    //
+    // Note how a block contains a byte for each address. The number
+    // of bytes (i.e, addresses) stored per block is constant across
+    // the entirety of this program. We'll come back here later.
+
+    // We know the number of blocks we need/have in the cache
+    // from this we need to determine how many bits are required
+    // to represent that number.
+    //
+    // It's easy, just log2(x) to find the number of bits required
+    // to represent `x`!
+    //
+    // Each "block number" is therefore represented in
+    // n = log2(block_count) bits...
+    // and each "block number" is actually the **index**.
+    //
+    // This means that an index is represented by n bits.
+    // There must be enough space in the address to represent the
+    // index, and so we now we know how many bits are used to derive
+    // the index of each individual address.
+    int bits_for_index = log2(number_of_cache_blocks);
+
+    // Now lets pick up where we left off. Multiple addresses
+    // can point to the same index, and can point to the same tag.
+    // It's the "block" that contains individual chunks of data for each
+    // individual address.
+    //
+    // Each individual address can only EVER store ONE byte, remember?
+    // Well, cache_block_size tells you how many bytes is stored in an
+    // individual block.
+    // (in other words, how many addresses use an individual block)
+    //
+    // So if multiple addresses use the same block to store their individual
+    // pieces of data, how do we know which byte within the block to read?
+    // That's where cache_block_size comes in.
+    //
+    // We simply derive the "offset" within the block from the address!
+    // But, aha! How many bits (well, max needed bits) does an "offset"
+    // consume within an address? It'd be log2(offsetCount).
+    //
+    // How do we determine the offsetCount? Good question.
+    // We have `cache_block_size`. Example: 4 bytes.
+    // Since addresses use 1 byte each; 0, 1, 2, 3 are the offsets.
+    // So offsetCount is simply the number of bytes: 4.
+    // We need to know how many bits are required to store offsetCount.
+    // Easy. log2(4) = 2, 2 bits needed to store 4 numbers (max val: 3 = 4-1)
+    //
+    // So since 4 is our example of `cache_block_size`.
+    // The number of bits to store a singular cache offset is:
+    //     log2(cache_block_size);
+    g_cache_offset_bits = log2(cache_block_size);
+
+    // We are told in the spec that an address is always 32 bits.
+    // We have determined how many of those bits are for finding the
+    // index to key a block. (bits_for_index)
+    // We have also determined how many of those bits are needed to find
+    // the offset within a particular block. (g_cache_offset_bits)
+    // The rest of the bits can be used to derive our tag, so we've
+    // counted down and we can store it in `g_num_cache_tag_bits`
+    g_num_cache_tag_bits = 32 - bits_for_index - g_cache_offset_bits;
+
 }
 
 void process_mem_access(mem_access_t access) {
-    printf("Processing %d %s\n", access.address, get_access_type(access.accesstype));
+    // printf("Processing %d %s\n", access.address, get_access_type(access.accesstype));
 }
 
 int main(int argc, char** argv) {
