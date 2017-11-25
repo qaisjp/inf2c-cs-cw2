@@ -159,7 +159,7 @@ void init_structs() {
 }
 
 void process_mem_access(mem_access_t access) {
-    printf("Processing %s %s", access.address, get_hierarchy_type(access.accesstype));
+    printf("Processing %d %s\n", access.address, get_hierarchy_type(access.accesstype));
 }
 
 int main(int argc, char** argv) {
