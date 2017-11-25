@@ -211,10 +211,30 @@ void init_structs() {
     // The rest of the bits can be used to derive our tag, so we've
     // counted down and we can store it in `g_num_cache_tag_bits`
     g_num_cache_tag_bits = 32 - g_cache_index_bits - g_cache_offset_bits;
+
+    // calculate size to allocate
+    uint32_t g_cache_size = sizeof(cache_block_t) * number_of_cache_blocks;
+
+    // allocate and error handle
+    g_cache = malloc(g_cache_size);
+    if (g_cache == NULL) {
+        printf("ERROR: out of memory!");
+        exit(-1);
+    }
+
+    // zero everything in the cache (each block as well)
+    memset(g_cache, 0, g_cache_size);
 }
 
 void cleanup() {
     print("Cleaning up...\n");
+
+    free(g_cache);
+}
+
+void process_mem_access(mem_access_t access) {
+    // printf("Processing %d %s\n", access.address, get_access_type(access.accesstype));
+    print("Cache block of %d (%x) is %d\n", access.address, access.address, get_address_cache_block_index(access.address));
 }
 
 // Confirmed.
@@ -245,11 +265,6 @@ uint32_t get_address_cache_block_index(uint32_t address) {
 uint32_t get_address_cache_offset(uint32_t address) {
     uint32_t lhs = (g_num_cache_tag_bits + g_cache_index_bits);
     return (address << lhs) >> lhs;
-}
-
-void process_mem_access(mem_access_t access) {
-    // printf("Processing %d %s\n", access.address, get_access_type(access.accesstype));
-    print("Cache block of %d (%x) is %d\n", access.address, access.address, get_address_cache_block_index(access.address));
 }
 
 int main(int argc, char** argv) {
