@@ -167,6 +167,12 @@ typedef uint8_t bool;
 // to derive the index from the address.
 uint32_t g_cache_index_bits = 0;
 
+typedef struct {
+    bool valid;
+    uint32_t tag;
+    uint32_t lru_count;
+} cache_block_t;
+
 const char* get_access_type(uint32_t t) {
     switch(t) {
         case instruction: return "instruction";
@@ -175,11 +181,6 @@ const char* get_access_type(uint32_t t) {
     };
     return "";
 }
-
-typedef struct {
-    bool valid;
-    uint32_t tag;
-} cache_block_t;
 
 void init_structs() {
     printf("Initialising structs..\n");
