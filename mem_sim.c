@@ -155,6 +155,7 @@ void print_statistics(uint32_t num_virtual_pages, uint32_t num_tlb_tag_bits, uin
  * TODO: Add any global variables and/or functions here as you wish.
  *
  */
+#include <stdbool.h>
 
 // Number of bits required to represent an index
 // of the cache. This number of bits is used
@@ -169,6 +170,11 @@ const char* get_access_type(uint32_t t) {
     };
     return "";
 }
+
+typedef struct {
+    bool valid;
+    uint32_t tag;
+} cache_block_t;
 
 void init_structs() {
     printf("Initialising structs..\n");
