@@ -151,10 +151,16 @@ void print_statistics(uint32_t num_virtual_pages, uint32_t num_tlb_tag_bits, uin
 
 /*
  *
- * Add any global variables and/or functions here as you wish.
+ * TODO: Add any global variables and/or functions here as you wish.
  *
  */
+void init_structs() {
+    printf("Initialising structs..\n");
+}
 
+void process_mem_access(mem_access_t access) {
+    printf("Processing %s %s", access.address, get_hierarchy_type(access.accesstype));
+}
 
 int main(int argc, char** argv) {
 
@@ -243,6 +249,7 @@ int main(int argc, char** argv) {
      * Use the following snippet and add your code to finish the task. */
 
     /* You may want to setup your TLB and/or Cache structure here. */
+    init_structs();
 
     mem_access_t access;
     /* Loop until the whole trace file has been read. */
@@ -253,6 +260,7 @@ int main(int argc, char** argv) {
             break;
         /* Add your code here */
         /* Feed the address to your TLB and/or Cache simulator and collect statistics. */
+        process_mem_access(access);
 
     }
 
