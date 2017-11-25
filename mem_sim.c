@@ -126,6 +126,8 @@ void print_statistics(uint32_t num_virtual_pages, uint32_t num_tlb_tag_bits, uin
 
     printf("NumPageTableAccesses:%u\n", num_page_table_accesses);
     printf("TotalVirtualPages:%u\n", num_virtual_pages);
+
+    // If tlb or (tlb+cache)
     if ( hierarchy_type != cache_only ) {
         printf("TLBTagBits:%u\n", num_tlb_tag_bits);
         printf("TLBOffsetBits:%u\n", tlb_offset_bits);
@@ -136,6 +138,7 @@ void print_statistics(uint32_t num_virtual_pages, uint32_t num_tlb_tag_bits, uin
         printf("TLB:total-hit-rate:%2.2f%%\n", tlb_total_hits / (float)(tlb_total_hits + tlb_total_misses) * 100.0); 
     }
 
+    // If cache or (tlb+cache)
     if ( hierarchy_type != tlb_only ) {
         printf("CacheTagBits:%u\n", num_cache_tag_bits); 
         printf("CacheOffsetBits:%u\n", cache_offset_bits); 
