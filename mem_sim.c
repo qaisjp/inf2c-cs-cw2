@@ -155,7 +155,12 @@ void print_statistics(uint32_t num_virtual_pages, uint32_t num_tlb_tag_bits, uin
  * TODO: Add any global variables and/or functions here as you wish.
  *
  */
-#include <stdbool.h>
+
+// Declare own boolean type, because
+// including <stdbool.h> is not allowed :(
+typedef uint8_t bool;
+#define true 1
+#define false 0
 
 // Number of bits required to represent an index
 // of the cache. This number of bits is used
