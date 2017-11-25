@@ -154,12 +154,21 @@ void print_statistics(uint32_t num_virtual_pages, uint32_t num_tlb_tag_bits, uin
  * TODO: Add any global variables and/or functions here as you wish.
  *
  */
+const char* get_access_type(uint32_t t) {
+    switch(t) {
+        case instruction: return "instruction";
+        case data: return "data";
+        default: assert(0); return "";
+    };
+    return "";
+}
+
 void init_structs() {
     printf("Initialising structs..\n");
 }
 
 void process_mem_access(mem_access_t access) {
-    printf("Processing %d %s\n", access.address, get_hierarchy_type(access.accesstype));
+    printf("Processing %d %s\n", access.address, get_access_type(access.accesstype));
 }
 
 int main(int argc, char** argv) {
