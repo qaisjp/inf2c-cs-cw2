@@ -65,8 +65,8 @@ uint32_t num_page_table_accesses = 0; // ?
 uint32_t g_total_num_virtual_pages = 0;
 uint32_t g_num_tlb_tag_bits = 0;
 uint32_t g_tlb_offset_bits = 0;
-uint32_t g_num_cache_tag_bits = 0; // number of bits that is storing the tag
-uint32_t g_cache_offset_bits= 0; // number of bits needed to store a singular offset
+uint32_t g_num_cache_tag_bits = 0; // bits to store a tag
+uint32_t g_cache_offset_bits= 0; // bits to store an offset
 result_t g_result;
 
 
@@ -155,6 +155,12 @@ void print_statistics(uint32_t num_virtual_pages, uint32_t num_tlb_tag_bits, uin
  * TODO: Add any global variables and/or functions here as you wish.
  *
  */
+
+// Number of bits required to represent an index
+// of the cache. This number of bits is used
+// to derive the index from the address.
+uint32_t g_cache_index_bits = 0;
+
 const char* get_access_type(uint32_t t) {
     switch(t) {
         case instruction: return "instruction";
@@ -191,7 +197,8 @@ void init_structs() {
     // There must be enough space in the address to represent the
     // index, and so we now we know how many bits are used to derive
     // the index of each individual address.
-    int bits_for_index = log2(number_of_cache_blocks);
+    g_cache_index_bits = log2(number_of_cache_blocks);
+    printf("CacheIndexBits: %d\n", g_cache_index_bits);
 
     // Now lets pick up where we left off. Multiple addresses
     // can point to the same index, and can point to the same tag.
@@ -225,12 +232,13 @@ void init_structs() {
 
     // We are told in the spec that an address is always 32 bits.
     // We have determined how many of those bits are for finding the
-    // index to key a block. (bits_for_index)
+    // index to key a block. (g_cache_index_bits)
     // We have also determined how many of those bits are needed to find
     // the offset within a particular block. (g_cache_offset_bits)
     // The rest of the bits can be used to derive our tag, so we've
     // counted down and we can store it in `g_num_cache_tag_bits`
-    g_num_cache_tag_bits = 32 - bits_for_index - g_cache_offset_bits;
+    g_num_cache_tag_bits = 32 - g_cache_index_bits - g_cache_offset_bits;
+}
 
 }
 
