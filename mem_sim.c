@@ -205,6 +205,21 @@ uint32_t get_address_cache_offset(uint32_t address) {
     return (address << lhs) >> lhs;
 }
 
+// Confirmed.
+uint32_t get_address_cache_tag(uint32_t address) {
+    // address is of this form:
+    // [TAG][INDEX][OFFSET]
+    //   ^     ^      ^
+    //   |     |      |
+    //   |     |   g_cache_offset_bits
+    //   |   g_cache_index_bits
+    //  g_num_cache_tag_bits
+    //
+    // We want tag.
+    // So shift right (index + offset) bits, and return that.
+    return address >> (g_cache_index_bits + g_cache_offset_bits);
+}
+
 void init_structs() {
     print("Initialising structs..\n");
 
@@ -247,24 +262,49 @@ void cleanup() {
     free(g_cache);
 }
 
-void process_mem_access(mem_access_t access) {
-    // printf("Processing %d %s\n", access.address, get_access_type(access.accesstype));
-    print("Cache block of %d (%x) is %d\n", access.address, access.address, get_address_cache_block_index(access.address));
-}
 
-// Confirmed.
-uint32_t get_address_cache_tag(uint32_t address) {
-    // address is of this form:
-    // [TAG][INDEX][OFFSET]
-    //   ^     ^      ^
-    //   |     |      |
-    //   |     |   g_cache_offset_bits
-    //   |   g_cache_index_bits
-    //  g_num_cache_tag_bits
-    //
-    // We want tag.
-    // So shift right (index + offset) bits, and return that.
-    return address >> (g_cache_index_bits + g_cache_offset_bits);
+bool didOne = false;
+
+void process_mem_access(mem_access_t access) {
+    uint32_t index = get_address_cache_block_index(access.address);
+    cache_block_t* block = &g_cache[index];
+
+    uint32_t tag = get_address_cache_tag(access.address);
+    bool matched_tag = block->tag == tag;
+    bool valid = block->valid;
+
+    if (!didOne) {
+        didOne = true;
+
+    }
+
+    if (valid && matched_tag) {
+        if (access.accesstype == instruction) {
+            g_result.cache_instruction_hits += 1;
+        } else {
+            g_result.cache_data_hits += 1;
+        }
+    } else {
+        block->tag = tag;
+        block->valid = true;
+
+
+        print("%x -> [tag: %d, block_index: %d, offset: %d]\n",
+            access.address,
+            tag,
+            index,
+            g_cache_offset_bits
+        );
+
+        if (access.accesstype == instruction) {
+            g_result.cache_instruction_misses += 1;
+        } else {
+            g_result.cache_data_misses += 1;
+        }
+    }
+
+    // printf("Processing %d %s\n", access.address, get_access_type(access.accesstype));
+    // print("Cache block o/zf %d (%x) is %d\n", access.address, access.address, get_address_cache_block_index(access.address));
 }
 
 int main(int argc, char** argv) {
