@@ -262,9 +262,6 @@ void cleanup() {
     free(g_cache);
 }
 
-
-bool didOne = false;
-
 void process_mem_access(mem_access_t access) {
     uint32_t index = get_address_cache_block_index(access.address);
     cache_block_t* block = &g_cache[index];
@@ -272,11 +269,6 @@ void process_mem_access(mem_access_t access) {
     uint32_t tag = get_address_cache_tag(access.address);
     bool matched_tag = block->tag == tag;
     bool valid = block->valid;
-
-    if (!didOne) {
-        didOne = true;
-
-    }
 
     if (valid && matched_tag) {
         print("HIT!!\n");
