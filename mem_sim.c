@@ -283,7 +283,7 @@ void translate_access_physical(mem_access_t* access) {
     uint32_t phys_page_number = dummy_translate_virtual_page_num(virt_page_number);
     
     // concat the page offset (10 bits) onto the virt_page number
-    access->address = (virt_page_number << 10) + page_offset;
+    access->address = (virt_page_number << g_page_offset_bits) + page_offset;
 }
 
 void process_mem_access(mem_access_t access) {
