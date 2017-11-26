@@ -53,9 +53,9 @@ typedef struct {
  */
 hierarchy_t hierarchy_type = tlb_cache; // mode script is currently running in
 uint32_t number_of_tlb_entries = 0; // ?
-uint32_t page_size = 0; // ?
-uint32_t number_of_cache_blocks = 0;
-uint32_t cache_block_size = 0;
+uint32_t page_size = 0; // size of the pagefile
+uint32_t number_of_cache_blocks = 0; // number of blocks
+uint32_t cache_block_size = 0; // bytes each block has
 uint32_t num_page_table_accesses = 0; // ?
 
 // YOU UPDATE
@@ -262,8 +262,25 @@ void cleanup() {
     free(g_cache);
 }
 
+// Translate virtual access to physical access
+void translate_access_physical(mem_access_t* access) {
+    uint32_t address = access->address;
+
+    // [page_number : 22 bits][page_offset : 10 bits]
+    uint32_t virt_page_number = address >> 10;
+    uint32_t page_offset = address & 0x3FF; // 0011(3) 1111(F) 1111(F) = 10 bits set to 1
+    uint32_t phys_page_number = dummy_translate_virtual_page_num(virt_page_number);
+    
+    
+}
+
 void process_mem_access(mem_access_t access) {
-    uint32_t index = get_address_cache_block_index(access.address);
+    // Translate virtual access to physical access
+    translate_access_physical(&access);
+
+    uint32_t address = access.address; // virtual address here
+
+    uint32_t index = get_address_cache_block_index(address);
     cache_block_t* block = &g_cache[index];
 
     uint32_t tag = get_address_cache_tag(access.address);
@@ -271,7 +288,7 @@ void process_mem_access(mem_access_t access) {
     bool valid = block->valid;
 
     if (valid && matched_tag) {
-        print("HIT!!\n");
+        // print("HIT!!\n");
         if (access.accesstype == instruction) {
             g_result.cache_instruction_hits += 1;
         } else {
@@ -280,14 +297,14 @@ void process_mem_access(mem_access_t access) {
     } else {
         block->tag = tag;
         block->valid = true;
-        print("MISS!!\n");
+        // print("MISS!!\n");
 
-        print("%x -> [tag: %d, block_index: %d, offset: %d]\n",
-            access.address,
-            tag,
-            index,
-            g_cache_offset_bits
-        );
+        // print("%x -> [tag: %d, block_index: %d, offset: %d]\n",
+        //     access.address,
+        //     tag,
+        //     index,
+        //     g_cache_offset_bits
+        // );
 
         if (access.accesstype == instruction) {
             g_result.cache_instruction_misses += 1;
