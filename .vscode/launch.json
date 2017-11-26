@@ -5,11 +5,31 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "(lldb) Launch",
+            "name": "mem_trace.txt",
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/mem_sim",
             "args": ["cache-only", "4096", "256", "32", "mem_trace.txt"],
+            "stopAtEntry": true,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build mem_sim"
+        },
+        {
+            "name": "my_trace.txt",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/mem_sim",
+            "args": ["cache-only", "4096", "256", "32", "my_trace.txt"],
             "stopAtEntry": true,
             "cwd": "${workspaceFolder}",
             "environment": [],
