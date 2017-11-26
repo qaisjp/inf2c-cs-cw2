@@ -187,14 +187,7 @@ typedef struct {
 // Cache
 cache_block_t* g_cache;
 
-const char* get_access_type(uint32_t t) {
-    switch(t) {
-        case instruction: return "instruction";
-        case data: return "data";
-        default: assert(0); return "";
-    };
-    return "";
-}
+
 
 // Confirmed. Gets the cache block index of the address.
 uint32_t get_address_cache_block_index(uint32_t address) {
