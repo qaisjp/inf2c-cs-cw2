@@ -169,7 +169,10 @@ bool debug = true;
 // Number of bits required to represent an index
 // of the cache. This number of bits is used
 // to derive the index from the address.
-uint32_t g_cache_index_bits = 0;
+uint32_t g_cache_index_bits;
+
+// Same thing for page offset
+uint32_t g_page_offset_bits;
 
 // Type for an individual cache_block,
 // (direct mapped)
@@ -233,6 +236,9 @@ void init_structs() {
     // g_cache_offset_bits = log2(offsetCount); // bits required to store the count
     g_cache_offset_bits = log2(cache_block_size);
 
+    // Similar thing for page_size
+    g_page_offset_bits = log2(page_size);
+
     // We are told in the spec that an address is always 32 bits.
     // We have determined how many of those bits are for finding the
     // index to key a block. (g_cache_index_bits)
@@ -262,16 +268,22 @@ void cleanup() {
     free(g_cache);
 }
 
+// Generates a bit sequence of `num` ones.
+// i.e, generate_ones(8) makes 11111111 (eight ones in binary, 0xFF)
+uint32_t generate_ones(uint32_t num) {
+    return (1 << num) - 1;
+}
+
 // Translate virtual access to physical access
 void translate_access_physical(mem_access_t* access) {
     uint32_t address = access->address;
 
-    // [page_number : 22 bits][page_offset : 10 bits]
-    uint32_t virt_page_number = address >> 10;
-    uint32_t page_offset = address & 0x3FF; // 0011(3) 1111(F) 1111(F) = 10 bits set to 1
+    uint32_t virt_page_number = address >> g_page_offset_bits;
+    uint32_t page_offset = address & generate_ones(g_page_offset_bits);
     uint32_t phys_page_number = dummy_translate_virtual_page_num(virt_page_number);
     
-    
+    // concat the page offset (10 bits) onto the virt_page number
+    access->address = (virt_page_number << 10) + page_offset;
 }
 
 void process_mem_access(mem_access_t access) {
