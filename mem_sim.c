@@ -239,6 +239,9 @@ void init_structs() {
     // Similar thing for page_size
     g_page_offset_bits = log2(page_size);
 
+    // max number representable in the bit count for page_number
+    g_total_num_virtual_pages = 1 << (32 - g_page_offset_bits);
+
     // We are told in the spec that an address is always 32 bits.
     // We have determined how many of those bits are for finding the
     // index to key a block. (g_cache_index_bits)
