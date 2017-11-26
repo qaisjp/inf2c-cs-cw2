@@ -163,7 +163,7 @@ typedef uint8_t bool;
 #define false 0
 
 // Define own print so we can turn off debug messages later
-bool debug = true;
+bool debug = false;
 #define print(...) if (debug) { printf(__VA_ARGS__); }
 
 // Number of bits required to represent an index
