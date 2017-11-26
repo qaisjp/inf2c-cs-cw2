@@ -199,6 +199,7 @@ typedef struct {
 
 // tlb cache
 tlb_entry_t* g_tlb;
+uint32_t g_max_lru;
 
 // Confirmed. Gets the cache block index of the address.
 uint32_t get_address_cache_block_index(uint32_t address) {
@@ -254,6 +255,8 @@ void initialise() {
             printf("ERROR: out of memory!");
             exit(-1);
         }
+
+        g_max_lru = number_of_tlb_entries - 1;
 
         // zero everything in the cache (each block as well)
         memset(g_tlb, 0, tlb_size);
@@ -375,7 +378,7 @@ void get_physical_address_tlb(uint32_t virt_page_number, uint32_t* phys_page_num
         }
 
         // set our lru_id to largest "index"
-        found->lru_id = number_of_tlb_entries;
+        found->lru_id = g_max_lru;
 
         // update physical page number for caller
         *phys_page_number = found->ppn;
@@ -408,7 +411,7 @@ void get_physical_address_tlb(uint32_t virt_page_number, uint32_t* phys_page_num
     lru_entry->valid = true;
     lru_entry->tag = virt_page_number;
     lru_entry->ppn = dummy_translate_virtual_page_num(virt_page_number);
-    lru_entry->lru_id = number_of_tlb_entries;
+    lru_entry->lru_id = g_max_lru;
 
     *phys_page_number = lru_entry->ppn;
     // print("Hit! \n");
