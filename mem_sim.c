@@ -279,6 +279,7 @@ void process_mem_access(mem_access_t access) {
     }
 
     if (valid && matched_tag) {
+        print("HIT!!\n");
         if (access.accesstype == instruction) {
             g_result.cache_instruction_hits += 1;
         } else {
@@ -287,7 +288,7 @@ void process_mem_access(mem_access_t access) {
     } else {
         block->tag = tag;
         block->valid = true;
-
+        print("MISS!!\n");
 
         print("%x -> [tag: %d, block_index: %d, offset: %d]\n",
             access.address,
