@@ -199,7 +199,6 @@ typedef struct {
 
 // tlb cache
 tlb_entry_t* g_tlb;
-uintptr_t g_tlb_end;
 
 // Confirmed. Gets the cache block index of the address.
 uint32_t get_address_cache_block_index(uint32_t address) {
@@ -255,8 +254,6 @@ void initialise() {
             printf("ERROR: out of memory!");
             exit(-1);
         }
-
-        g_tlb_end = (uintptr_t)g_tlb + tlb_size;
 
         // zero everything in the cache (each block as well)
         memset(g_tlb, 0, tlb_size);
@@ -322,6 +319,8 @@ void get_physical_address_tlb(uint32_t virt_page_number, uint32_t* phys_page_num
     //    also find the least recently used entry (if we need it)
     //
     tlb_entry_t* it = g_tlb; // "iterator"
+    uint32_t index = 0;
+
     tlb_entry_t* found; // the pointer to the entry we've found
     tlb_entry_t* lru_entry; // the entry we would remove
 
@@ -329,7 +328,7 @@ void get_physical_address_tlb(uint32_t virt_page_number, uint32_t* phys_page_num
     *hit = false;
 
     // while we haven't reached the end of the array
-    while ((uintptr_t)it != g_tlb_end) {
+    while (index < number_of_tlb_entries) {
         // if this is valid, and the tag matches..
         if (it->valid && it->tag == virt_page_number) {
             *hit = true; // notify caller it was a hit
@@ -351,7 +350,8 @@ void get_physical_address_tlb(uint32_t virt_page_number, uint32_t* phys_page_num
         }
 
         // next item in the array...
-        it++;
+        index += 1;;
+        it += 1;
     }
 
     // print("Finished 1 \n");
@@ -361,14 +361,16 @@ void get_physical_address_tlb(uint32_t virt_page_number, uint32_t* phys_page_num
     //     make our lru_id the greatest lru_id.
     if (*hit) {
         it = g_tlb; // reset our iterator
+        index = 0;
 
-        while ((uintptr_t)it != g_tlb_end) {
+        while (index < number_of_tlb_entries) {
             // if this lru_id is greater than the one we found
             if (it->lru_id > found->lru_id) {
                 // decrement our lru_id
                 it->lru_id -= 1;
             }
 
+            index += 1;
             it++;
         }
 
@@ -391,14 +393,16 @@ void get_physical_address_tlb(uint32_t virt_page_number, uint32_t* phys_page_num
     //     recently used entry with the greatest lru_id, as well as update its tag.
 
     it = g_tlb; // reset our iterator
+    index = 0;
 
-    while ((uintptr_t)it != g_tlb_end) {
+    while (index < number_of_tlb_entries) {
         // again, we don't need to worry about non-valid ones here...
         if (it->lru_id != 0) {
             it->lru_id -= 1;
         }
 
-        it++;
+        index += 1;
+        it += 1;
     }
 
     lru_entry->valid = true;
