@@ -52,11 +52,11 @@ typedef struct {
  * Parameters for TLB and cache that will be populated by the provided code skeleton.
  */
 hierarchy_t hierarchy_type = tlb_cache; // mode script is currently running in
-uint32_t number_of_tlb_entries = 0; // ?
+uint32_t number_of_tlb_entries = 0; // number of entries the tlb should have
 uint32_t page_size = 0; // size of the pagefile
 uint32_t number_of_cache_blocks = 0; // number of blocks
 uint32_t cache_block_size = 0; // bytes each block has
-uint32_t num_page_table_accesses = 0; // ?
+uint32_t num_page_table_accesses = 0; // automatically done
 
 // YOU UPDATE
 /*
@@ -171,11 +171,9 @@ bool debug = true;
 // to derive the index from the address.
 uint32_t g_cache_index_bits;
 
-// Same thing for page offset
-uint32_t g_page_offset_bits;
-
 // Other stuff
 bool g_use_tlb;
+bool g_use_cache;
 
 // Type for an individual cache_block,
 // (direct mapped)
@@ -187,7 +185,21 @@ typedef struct {
 // Cache
 cache_block_t* g_cache;
 
+// tlb entry
+typedef struct {
+    bool valid;
 
+    // consider adding this field if you intend to back this cache by a store
+    // bool dirty;
+
+    uint32_t tag;
+    uint32_t ppn; // physical page number
+    uint32_t lru_id;
+} tlb_entry_t;
+
+// tlb cache
+tlb_entry_t* g_tlb;
+uint32_t g_tlb_end;
 
 // Confirmed. Gets the cache block index of the address.
 uint32_t get_address_cache_block_index(uint32_t address) {
@@ -219,18 +231,38 @@ uint32_t get_address_cache_tag(uint32_t address) {
     return address >> (g_cache_index_bits + g_cache_offset_bits);
 }
 
-void init_structs() {
-    print("Initialising structs..\n");
+void initialise() {
+    print("Initialising..\n");
 
     g_use_tlb = hierarchy_type != cache_only;
+    g_use_cache = hierarchy_type != tlb_only;
 
     // Similar thing for page_size
-    g_page_offset_bits = log2(page_size);
+    g_tlb_offset_bits = log2(page_size);
+    g_num_tlb_tag_bits = 32 - g_tlb_offset_bits;
 
     // max number representable in the bit count for page_number
-    g_total_num_virtual_pages = 1 << (32 - g_page_offset_bits);
+    g_total_num_virtual_pages = 1 << g_num_tlb_tag_bits;
 
-    if (hierarchy_type == tlb_only) {
+    if (g_use_tlb) {
+        // size of the tlb array
+        //
+        uint32_t tlb_size = sizeof(tlb_entry_t) * number_of_tlb_entries;
+        
+        // allocate and error handle
+        g_tlb = malloc(tlb_size);
+        if (g_tlb == NULL) {
+            printf("ERROR: out of memory!");
+            exit(-1);
+        }
+
+        g_tlb_end = (uint32_t)g_tlb + tlb_size;
+
+        // zero everything in the cache (each block as well)
+        memset(g_tlb, 0, tlb_size);
+    }
+
+    if (!g_use_cache) {
         return;
     }
 
@@ -254,23 +286,29 @@ void init_structs() {
     g_num_cache_tag_bits = 32 - g_cache_index_bits - g_cache_offset_bits;
 
     // calculate size to allocate
-    uint32_t g_cache_size = sizeof(cache_block_t) * number_of_cache_blocks;
+    uint32_t cache_size = sizeof(cache_block_t) * number_of_cache_blocks;
 
     // allocate and error handle
-    g_cache = malloc(g_cache_size);
+    g_cache = malloc(cache_size);
     if (g_cache == NULL) {
         printf("ERROR: out of memory!");
         exit(-1);
     }
 
     // zero everything in the cache (each block as well)
-    memset(g_cache, 0, g_cache_size);
+    memset(g_cache, 0, cache_size);
 }
 
 void cleanup() {
     print("Cleaning up...\n");
 
-    free(g_cache);
+    if (g_use_cache) {
+        free(g_cache);
+    }
+
+    if (g_use_tlb) {
+        free(g_tlb);
+    }
 }
 
 // Generates a bit sequence of `num` ones.
@@ -279,13 +317,99 @@ uint32_t generate_ones(uint32_t num) {
     return (1 << num) - 1;
 }
 
-void get_physical_address_tlb(uint32_t* phys_page_number, bool* ok) {
+void get_physical_address_tlb(uint32_t virt_page_number, uint32_t* phys_page_number, bool* hit) {
+    // 1. Check if we have an entry, and whilst we're here
+    //    also find the least recently used entry (if we need it)
+    //
+    tlb_entry_t* it = g_tlb; // "iterator"
+    tlb_entry_t* found; // the pointer to the entry we've found
+    tlb_entry_t* lru_entry; // the entry we would remove
 
-    *ok = false;
-}
+    // Initialise hit to false.
+    *hit = false;
 
-void store_tlb_mapping(uint32_t virt_page_number, uint32_t phys_page_number) {
-    
+    // while we haven't reached the end of the array
+    while ((uint32_t)it != g_tlb_end) {
+        // if this is valid, and the tag matches..
+        if (it->valid && it->tag == virt_page_number) {
+            *hit = true; // notify caller it was a hit
+            found = it; // found it! haha
+            // print("Found.\n");
+        } else if (it->lru_id == 0) {
+            // We zero g_tlb when we malloc it,
+            // so we can just keep taking the empty ones
+            // even if we haven't consumed the entire buffer.
+            // (i.e even if they are not valid)
+            lru_entry = it;
+
+            // The above will run twice in all cases except one.
+            // That's okay. It won't hurt.
+            if (*hit) {
+                break;
+            }
+
+        }
+
+        // next item in the array...
+        it++;
+    }
+
+    // print("Finished 1 \n");
+
+    // 2a. If we have an entry, we need to decrement all the entries
+    //     with a greater lru_id than the one we found. Then we can
+    //     make our lru_id the greatest lru_id.
+    if (*hit) {
+        it = g_tlb; // reset our iterator
+
+        while ((uint32_t)it != g_tlb_end) {
+            // if this lru_id is greater than the one we found
+            if (it->lru_id > found->lru_id) {
+                // decrement our lru_id
+                it->lru_id -= 1;
+            }
+
+            it++;
+        }
+
+        // set our lru_id to largest "index"
+        found->lru_id = number_of_tlb_entries;
+
+        // update physical page number for caller
+        *phys_page_number = found->ppn;
+
+        // print("Exited.\n");
+        return;
+    }
+
+    // (we know we don't have an entry now)
+
+    // 2b. If we don't have an entry, we need to decrement ALL the entries;
+    //     except WE DON'T decrement the entry with lru_id 0).
+    //
+    //     Then we query for the translated page number, and replace the LEAST
+    //     recently used entry with the greatest lru_id, as well as update its tag.
+
+    it = g_tlb; // reset our iterator
+
+    while ((uint32_t)it != g_tlb_end) {
+        // again, we don't need to worry about non-valid ones here...
+        if (it->lru_id != 0) {
+            it->lru_id -= 1;
+        }
+
+        it++;
+    }
+
+    lru_entry->valid = true;
+    lru_entry->tag = virt_page_number;
+    lru_entry->ppn = dummy_translate_virtual_page_num(virt_page_number);
+    lru_entry->lru_id = number_of_tlb_entries;
+
+    *phys_page_number = lru_entry->ppn;
+    // print("Hit! \n");
+
+    return;
 }
 
 void increment_by_accesstype(access_t type, uint32_t* data_counter, uint32_t* instruction_counter) {
@@ -300,13 +424,13 @@ void increment_by_accesstype(access_t type, uint32_t* data_counter, uint32_t* in
 void translate_access_physical(mem_access_t* access) {
     uint32_t address = access->address;
 
-    uint32_t virt_page_number = address >> g_page_offset_bits;
-    uint32_t page_offset = address & generate_ones(g_page_offset_bits);
+    uint32_t virt_page_number = address >> g_tlb_offset_bits;
+    uint32_t page_offset = address & generate_ones(g_tlb_offset_bits);
     uint32_t phys_page_number;
 
     if (g_use_tlb) {
         bool ok = false;
-        get_physical_address_tlb(&phys_page_number, &ok);
+        get_physical_address_tlb(virt_page_number, &phys_page_number, &ok);
 
         if (ok) {
             increment_by_accesstype(
@@ -315,9 +439,6 @@ void translate_access_physical(mem_access_t* access) {
                 &g_result.tlb_instruction_hits
             );
         } else {
-            phys_page_number = dummy_translate_virtual_page_num(virt_page_number);
-            store_tlb_mapping(virt_page_number, phys_page_number);
-
             increment_by_accesstype(
                 access->accesstype,
                 &g_result.tlb_data_misses,
@@ -329,16 +450,15 @@ void translate_access_physical(mem_access_t* access) {
     }
     
     // concat the page offset (10 bits) onto the phys_page number
-    access->address = (phys_page_number << g_page_offset_bits) + page_offset;
+    access->address = (phys_page_number << g_tlb_offset_bits) + page_offset;
 }
 
 void process_mem_access(mem_access_t access) {
     // Translate virtual access to physical access
     translate_access_physical(&access);
 
-    // If we're in trb-only mode, we only need to do the
-    // translation magic. So STOP RIGHT THERE!
-    if (hierarchy_type == tlb_only) {
+    // If we're not using the cache, stop right there!
+    if (!g_use_cache) {
         return;
     }
 
@@ -468,7 +588,7 @@ int main(int argc, char** argv) {
      * Use the following snippet and add your code to finish the task. */
 
     /* You may want to setup your TLB and/or Cache structure here. */
-    init_structs();
+    initialise();
 
     mem_access_t access;
     /* Loop until the whole trace file has been read. */
