@@ -313,6 +313,7 @@ void cleanup() {
 
 // Generates a bit sequence of `num` ones.
 // i.e, generate_ones(8) makes 11111111 (eight ones in binary, 0xFF)
+// c++ would use constexpr
 uint32_t generate_ones(uint32_t num) {
     return (1 << num) - 1;
 }
@@ -419,6 +420,7 @@ void get_physical_address_tlb(uint32_t virt_page_number, uint32_t* phys_page_num
     return;
 }
 
+// increment whichever counters dependent on the type of address provided
 void increment_by_accesstype(access_t type, uint32_t* data_counter, uint32_t* instruction_counter) {
     if (type == data) {
         *data_counter += 1;
