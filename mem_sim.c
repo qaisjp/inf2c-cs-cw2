@@ -199,7 +199,7 @@ typedef struct {
 
 // tlb cache
 tlb_entry_t* g_tlb;
-uint32_t g_tlb_end;
+int g_tlb_end;
 
 // Confirmed. Gets the cache block index of the address.
 uint32_t get_address_cache_block_index(uint32_t address) {
@@ -256,7 +256,7 @@ void initialise() {
             exit(-1);
         }
 
-        g_tlb_end = (uint32_t)g_tlb + tlb_size;
+        g_tlb_end = (int)g_tlb + tlb_size;
 
         // zero everything in the cache (each block as well)
         memset(g_tlb, 0, tlb_size);
@@ -329,7 +329,7 @@ void get_physical_address_tlb(uint32_t virt_page_number, uint32_t* phys_page_num
     *hit = false;
 
     // while we haven't reached the end of the array
-    while ((uint32_t)it != g_tlb_end) {
+    while ((int)it != g_tlb_end) {
         // if this is valid, and the tag matches..
         if (it->valid && it->tag == virt_page_number) {
             *hit = true; // notify caller it was a hit
@@ -362,7 +362,7 @@ void get_physical_address_tlb(uint32_t virt_page_number, uint32_t* phys_page_num
     if (*hit) {
         it = g_tlb; // reset our iterator
 
-        while ((uint32_t)it != g_tlb_end) {
+        while ((int)it != g_tlb_end) {
             // if this lru_id is greater than the one we found
             if (it->lru_id > found->lru_id) {
                 // decrement our lru_id
@@ -392,7 +392,7 @@ void get_physical_address_tlb(uint32_t virt_page_number, uint32_t* phys_page_num
 
     it = g_tlb; // reset our iterator
 
-    while ((uint32_t)it != g_tlb_end) {
+    while ((int)it != g_tlb_end) {
         // again, we don't need to worry about non-valid ones here...
         if (it->lru_id != 0) {
             it->lru_id -= 1;
