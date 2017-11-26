@@ -174,6 +174,9 @@ uint32_t g_cache_index_bits;
 // Same thing for page offset
 uint32_t g_page_offset_bits;
 
+// Other stuff
+bool g_use_tlb;
+
 // Type for an individual cache_block,
 // (direct mapped)
 typedef struct {
@@ -226,6 +229,18 @@ uint32_t get_address_cache_tag(uint32_t address) {
 void init_structs() {
     print("Initialising structs..\n");
 
+    g_use_tlb = hierarchy_type != cache_only;
+
+    // Similar thing for page_size
+    g_page_offset_bits = log2(page_size);
+
+    // max number representable in the bit count for page_number
+    g_total_num_virtual_pages = 1 << (32 - g_page_offset_bits);
+
+    if (hierarchy_type == tlb_only) {
+        return;
+    }
+
     // Each "block number" is represented in
     // n = log2(block_count) bits...
     // and each "block number" is actually the **index**.
@@ -235,12 +250,6 @@ void init_structs() {
     // offsetCount = cache_block_size; because size is in bytes, addresses use 1 byte each
     // g_cache_offset_bits = log2(offsetCount); // bits required to store the count
     g_cache_offset_bits = log2(cache_block_size);
-
-    // Similar thing for page_size
-    g_page_offset_bits = log2(page_size);
-
-    // max number representable in the bit count for page_number
-    g_total_num_virtual_pages = 1 << (32 - g_page_offset_bits);
 
     // We are told in the spec that an address is always 32 bits.
     // We have determined how many of those bits are for finding the
@@ -277,13 +286,54 @@ uint32_t generate_ones(uint32_t num) {
     return (1 << num) - 1;
 }
 
+void get_physical_address_tlb(uint32_t* phys_page_number, bool* ok) {
+
+    *ok = false;
+}
+
+void store_tlb_mapping(uint32_t virt_page_number, uint32_t phys_page_number) {
+    
+}
+
+void increment_by_accesstype(access_t type, uint32_t* data_counter, uint32_t* instruction_counter) {
+    if (type == data) {
+        *data_counter += 1;
+    } else if (type == instruction) {
+        *instruction_counter += 1;
+    }
+}
+
 // Translate virtual access to physical access
 void translate_access_physical(mem_access_t* access) {
     uint32_t address = access->address;
 
     uint32_t virt_page_number = address >> g_page_offset_bits;
     uint32_t page_offset = address & generate_ones(g_page_offset_bits);
-    uint32_t phys_page_number = dummy_translate_virtual_page_num(virt_page_number);
+    uint32_t phys_page_number;
+
+    if (g_use_tlb) {
+        bool ok = false;
+        get_physical_address_tlb(&phys_page_number, &ok);
+
+        if (ok) {
+            increment_by_accesstype(
+                access->accesstype,
+                &g_result.tlb_data_hits,
+                &g_result.tlb_instruction_hits
+            );
+        } else {
+            phys_page_number = dummy_translate_virtual_page_num(virt_page_number);
+            store_tlb_mapping(virt_page_number, phys_page_number);
+
+            increment_by_accesstype(
+                access->accesstype,
+                &g_result.tlb_data_misses,
+                &g_result.tlb_instruction_misses
+            );
+        }
+    } else {
+        phys_page_number = dummy_translate_virtual_page_num(virt_page_number);
+    }
     
     // concat the page offset (10 bits) onto the phys_page number
     access->address = (phys_page_number << g_page_offset_bits) + page_offset;
@@ -292,6 +342,12 @@ void translate_access_physical(mem_access_t* access) {
 void process_mem_access(mem_access_t access) {
     // Translate virtual access to physical access
     translate_access_physical(&access);
+
+    // If we're in trb-only mode, we only need to do the
+    // translation magic. So STOP RIGHT THERE!
+    if (hierarchy_type == tlb_only) {
+        return;
+    }
 
     uint32_t address = access.address; // virtual address here
 
@@ -304,11 +360,11 @@ void process_mem_access(mem_access_t access) {
 
     if (valid && matched_tag) {
         // print("HIT!!\n");
-        if (access.accesstype == instruction) {
-            g_result.cache_instruction_hits += 1;
-        } else {
-            g_result.cache_data_hits += 1;
-        }
+        increment_by_accesstype(
+            access.accesstype,
+            &g_result.cache_data_hits,
+            &g_result.cache_instruction_hits
+        );
     } else {
         block->tag = tag;
         block->valid = true;
@@ -321,11 +377,11 @@ void process_mem_access(mem_access_t access) {
         //     g_cache_offset_bits
         // );
 
-        if (access.accesstype == instruction) {
-            g_result.cache_instruction_misses += 1;
-        } else {
-            g_result.cache_data_misses += 1;
-        }
+        increment_by_accesstype(
+            access.accesstype,
+            &g_result.cache_data_misses,
+            &g_result.cache_instruction_misses
+        );
     }
 
     // printf("Processing %d %s\n", access.address, get_access_type(access.accesstype));
